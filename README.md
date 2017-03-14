@@ -6,8 +6,16 @@ Celestron mounts, such as the CPC, come with a GPS unit built-in. However, they 
 bad after a few years of service. This project will give you instructions on how to build
 your own compatible unit using off-the-shelf components and a little programming.
 
-An eventual goal is to build a unit compatble with the SkySync, which allows you to
-attach a GPS to mounts that don't normally have one, such as the CGEM.
+## Goals
+
+1. Construct a replacement for the CPC mount, which already has a built-in GPS.
+
+2. Construct a SkySync-compatible unit for attaching a GPS to Celestron mounts that don't
+   already have a GPS, such as the CGEM.
+
+3. Construct a replacement for the module in the Meade LX200GPS.
+
+4. Other mounts? Such as the Orion Atlas. (Don't know if the hand controller supports GPS.)
 
 ## Parts
 
