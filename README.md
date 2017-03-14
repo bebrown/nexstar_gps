@@ -20,3 +20,9 @@ Available for about $16.
 
 * A TTL serial-to-USB adapter for programming the Arduino (if it does not have an on-board
   USB port already). Available for about $3.
+
+## Libraries
+
+You will need to download and install the TinyGPS++ library.
+
+Also needed is the SoftwareSerial library, which is built in to the Arduino IDE.
