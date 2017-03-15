@@ -29,6 +29,16 @@ Available for about $16.
 * A TTL serial-to-USB adapter for programming the Arduino (if it does not have an on-board
   USB port already). Available for about $3.
 
+## Construction
+
+Examine the three boards in your kit.
+
+* The GPS module should have at least four pins: VCC, GND, TXD, and RXD.
+
+* Locate the following pins on the Arduino: VCC, 5V, GND, TX, RX, and pins 2 & 3.
+
+* The serial-to-USB adapter should have: 5V, GND, TXD, and RXD.
+
 ## Libraries
 
 You will need to download and install the TinyGPS++ library.
