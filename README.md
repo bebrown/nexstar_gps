@@ -44,10 +44,10 @@ some DuPont cables to run wires between them. I suggest using right-angle header
 
 Here's a basic connection diagram:
 
-GPS 5V ------------ 5V                  5V ----------- 5V
-GPS GND ----------- GND      Arduino    GND ---------- GND   Serial Adapter
-GPS TX ------------ PIN 2               TX ----------- RX                      USB ----------> PC
-GPS RX ------------ PIN 3               RX ----------- TX
+    GPS 5V ------------ 5V                  5V ----------- 5V
+    GPS GND ----------- GND      Arduino    GND ---------- GND   Serial Adapter
+    GPS TX ------------ PIN 2               TX ----------- RX                      USB ----------> PC
+    GPS RX ------------ PIN 3               RX ----------- TX
 
 Once the Arduino has been programmed you'll remove the serial adapter and plug the Arduino
 directly into the existing connection in the CPC mount (inside the right-hand fork arm).
