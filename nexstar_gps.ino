@@ -10,6 +10,10 @@
 TinyGPSPlus gps;
 SoftwareSerial ss(RXPIN, TXPIN);
 
+TinyGPSCustom satellitesInView(gps, "GPGSV", 3);
+TinyGPSCustom fix3D(gps, "GPGSA", 2);    // 1 = no fix, 2 = 2D fix, 3 = 3D fix
+TinyGPSCustom fixQuality(gps, "GPGGA", 6);  // 0 = invalid, 1 = GPS, 2 = DGPS, etc...
+
 #define PK_MAX_LEN 12
 unsigned char packet[PK_MAX_LEN];   // Is 12 enough? What is the largest expected packet?
 enum pk_state { PREAMBLE_WAIT, LENGTH_WAIT, DATA, CKSUM, DONE, VALID };
@@ -41,31 +45,39 @@ void loop() {
   if (pkstate != VALID) return;
 
   // Check that destination is for me
-  if (packet[2] != DEV_GPS) return;
+  if (packet[2] != DEV_GPS) {
+    pkstate = 0;
+    pkidx = 0;
+    pklen = 0;
+    return;
+  }
 
   // It's for me! What's the command?
+  uint8_t dest = packet[1];
   switch(packet[3])
   {
     case GPS_LINKED:
-    if (gps.sentencesWithFix() > 0)
-      pk_send(packet[1], 1);
-    else
-      pk_send(packet[1], 0);
-    break;
-
     case GPS_TIME_VALID:
+    if (fixQuality.value() > 0)
+      pk_send(dest, packet[3], 1);
+    else
+      pk_send(dest, packet[3], 0);
     break;
 
     case GPS_GET_TIME:
+    pk_send(dest, GPS_GET_TIME, gps.time.hour(), gps.time.minute(), gps.time.second());
     break;
 
     case GPS_GET_HW_VER:
+    pk_send(dest, GPS_GET_HW_VER, GPS_HW_VER);
     break;
 
     case GPS_GET_YEAR:
+    pk_send(dest, GPS_GET_YEAR, gps.date.year() >> 8, gps.date.year() & 0xff);
     break;
 
     case GPS_GET_DATE:
+    pk_send(dest, GPS_GET_DATE, gps.date.month(), gps.date.day());
     break;
 
     case GPS_GET_LAT:
@@ -75,6 +87,7 @@ void loop() {
     break;
 
     case GPS_GET_SAT_INFO:
+    pk_send(dest, GPS_GET_SAT_INFO, satellitesInView.value(), gps.satellites.value());
     break;
 
     case GPS_GET_RCVR_STATUS:
@@ -84,12 +97,18 @@ void loop() {
     break;
 
     case GPS_GET_VER:
+    pk_send(dest, GPS_GET_VER, 0, 1);  // Version 0.1
     break;
   }
+
+  pkstate = PREAMBLE_WAIT;
+  pklen = 0;
+  pkidx = 0;
 }
 
-void packet_decode(int c)
+void packet_decode(int8_t c)
 {
+  Serial.write(c);
   switch (pkstate)
   {
     case PREAMBLE_WAIT:
@@ -101,6 +120,8 @@ void packet_decode(int c)
     case LENGTH_WAIT:
     if (c < PK_MAX_LEN) {
       pklen = c;
+      packet[0] = c;
+      pkidx = 1;
       pkstate = DATA;
     }
     else
@@ -110,29 +131,27 @@ void packet_decode(int c)
     case DATA:
     packet[pkidx] = c;
     pkidx++;
-    if (pkidx == pklen - 1)
+    if (pkidx == pklen + 1)
       pkstate = CKSUM;
     break;
 
     case CKSUM:
-    packet[pkidx] = c;
-    pkstate = DONE;
-    break;
-
-    case DONE:
-    if (pk_checksum())
+    if (pk_checksum(c))
       pkstate = VALID;
     else
       pkstate = PREAMBLE_WAIT;
     break;
   }
+  Serial.write(pkstate);
 }
 
-bool pk_checksum()
+bool pk_checksum(int8_t target)
 {
-  char sum = 0;
-  for (int i = 0; i < pklen; i++) sum += packet[i];
-  return (packet[pklen] == -sum);
+  int sum = 0;
+  for (int i = 0; i <= pklen; i++) sum += packet[i];
+  Serial.write(sum & 0xff);
+  int8_t chk = (-sum) & 0xff;
+  return (target == chk);
 }
 
 inline void cksum_init()
@@ -151,36 +170,86 @@ inline int8_t cksum_final()
 }
 
 // Send a 1-byte response
-void pk_send(const uint8_t dest, const uint8_t byte0)
+void pk_send(uint8_t dest, uint8_t id, uint8_t byte0)
 {
   cksum_init();
   // Send preamble
-  ss.write(0x3b);
-  // Send length 3
-  cksum_update(0x03);
-  ss.write(0x03);
+  Serial.write(0x3b);
+  // Send length 4
+  cksum_update(0x04);
+  Serial.write(0x04);
   // Send src
   cksum_update(DEV_GPS);
-  ss.write((uint8_t)DEV_GPS);
+  Serial.write((uint8_t)DEV_GPS);
   // Send dest
   cksum_update(dest);
-  ss.write(dest);
+  Serial.write(dest);
+  // Send message id
+  cksum_update(id);
+  Serial.write(id);
   // Send byte0
   cksum_update(byte0);
-  ss.write(byte0);
+  Serial.write(byte0);
   // Send checksum
-  ss.write(cksum_final());
+  Serial.write(cksum_final());
 }
 
 // Send a 2-byte response
-void pk_send(const uint8_t dest, const uint8_t byte0, const uint8_t byte1)
+void pk_send(uint8_t dest, uint8_t id, uint8_t byte0, uint8_t byte1)
 {
-  
+  cksum_init();
+  // Send preamble
+  Serial.write(0x3b);
+  // Send length 5
+  cksum_update(0x05);
+  Serial.write(0x05);
+  // Send src
+  cksum_update(DEV_GPS);
+  Serial.write((uint8_t)DEV_GPS);
+  // Send dest
+  cksum_update(dest);
+  Serial.write(dest);
+  // Send message id
+  cksum_update(id);
+  Serial.write(id);
+  // Send byte0
+  cksum_update(byte0);
+  Serial.write(byte0);
+  // Send byte1
+  cksum_update(byte1);
+  Serial.write(byte1);
+  // Send checksum
+  Serial.write(cksum_final());
 }
 
 // Send a 3-byte response
-void pk_send(const uint8_t dest, const uint8_t byte0, const uint8_t byte1, const uint8_t byte2)
+void pk_send(uint8_t dest, uint8_t id, uint8_t byte0, uint8_t byte1, uint8_t byte2)
 {
-  
+  cksum_init();
+  // Send preamble
+  Serial.write(0x3b);
+  // Send length 6
+  cksum_update(0x06);
+  Serial.write(0x06);
+  // Send src
+  cksum_update(DEV_GPS);
+  Serial.write((uint8_t)DEV_GPS);
+  // Send dest
+  cksum_update(dest);
+  Serial.write(dest);
+  // Send message id
+  cksum_update(id);
+  Serial.write(id);
+  // Send byte0
+  cksum_update(byte0);
+  Serial.write(byte0);
+  // Send byte1
+  cksum_update(byte1);
+  Serial.write(byte1);
+  // Send byte2
+  cksum_update(byte2);
+  Serial.write(byte2);
+  // Send checksum
+  Serial.write(cksum_final());
 }
 
